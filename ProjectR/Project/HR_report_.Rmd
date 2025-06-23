@@ -1,0 +1,190 @@
+---
+title: "HR Analytics: Model Predykcji Awansów"
+author: "dr Sebastian Wójcik (Prowadzący)"
+date: "`r format(Sys.time(), '%d-%m-%Y')`"
+output:
+  html_document:
+    df_print: paged
+    keep_md: true
+    self_contained: true
+---
+
+--------------------------------------------
+
+## Wyższa Szkoła Informatyki i Zarządzania z siedzibą w Rzeszowie
+
+<table>
+  <tr>
+    <td style="padding-right: 20px;"><b>Imię i Nazwisko:</b></td>
+    <td style="padding-right: 20px;">Pavlo Mysiuk</td>
+    <td style="padding-right: 20px;">Roman Bezshchasnyi</td>
+    <td style="padding-right: 20px;">Vladyslav Korniichuk</td>
+  </tr>
+  <tr>
+    <td><b>Numer albumu:</b></td>
+    <td>W70474</td>
+    <td>W69930</td>
+    <td>W69943</td>
+  </tr>
+  <tr>
+    <td><b>Nazwa przedmiotu:</b></td>
+    <td colspan="3">Drążenie danych</td>
+  </tr>
+  <tr>
+    <td><b>Rok akademicki:</b></td>
+    <td colspan="3">2024/2025</td>
+  </tr>
+</table>
+
+--------------------------------------------
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+# Ładowanie niezbędnych bibliotek
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(knitr)
+```
+
+# Wprowadzenie
+
+Celem niniejszej analizy jest zbudowanie i ocena modeli uczenia maszynowego służących do predykcji, którzy pracownicy powinni zostać zakwalifikowani do awansu. W ramach projektu przetestowane zostaną trzy różne algorytmy klasyfikacyjne. Ich skuteczność zostanie oceniona przy użyciu walidacji krzyżowej oraz metryk pochodzących z macierzy pomyłek, takich jak: **dokładność (Accuracy)**, **precyzja (Precision)**, **czułość (Recall)** oraz **F1-Score**.
+
+# 1. Przygotowanie Danych
+
+Pierwszym krokiem jest załadowanie danych z pliku `train.csv`, a następnie ich oczyszczenie i przygotowanie do procesu modelowania.
+
+```{r data_preparation}
+df <- read_delim("train.csv", delim = ";")
+
+# Konwersja zmiennych na typ 'factor'
+df <- df %>%
+  mutate(
+    is_promoted = factor(is_promoted, levels = c(0, 1), labels = c("Nie", "Tak")),
+    gender = as.factor(gender),
+    department = as.factor(department),
+    region = as.factor(region),
+    recruitment_channel = as.factor(recruitment_channel)
+  )
+
+# Uzupełnienie brakujących wartości (NA)
+df$previous_year_rating[is.na(df$previous_year_rating)] <- median(df$previous_year_rating, na.rm = TRUE)
+mode_education <- names(sort(table(df$education), decreasing = TRUE))[1]
+df$education[is.na(df$education)] <- mode_education
+df$education <- as.factor(df$education)
+
+# Usunięcie zbędnej kolumny
+df <- df %>% select(-employee_id)
+
+# Podział na zbiór treningowy (75%) i testowy (25%)
+set.seed(123)
+train_index <- createDataPartition(df$is_promoted, p = 0.75, list = FALSE)
+train_data <- df[train_index, ]
+test_data <- df[-train_index, ]
+```
+
+Przegląd pierwszych wierszy załadowanego zbioru danych:
+```{r data_preview, echo=FALSE}
+kable(head(df), caption = "Pierwsze 6 wierszy zbioru danych")
+```
+
+# 2. Budowa i Ocena Modeli Klasyfikacyjnych
+
+Do trenowania modeli zostanie wykorzystana **5-krotna walidacja krzyżowa**, co zapewni większą stabilność i wiarygodność wyników.
+
+```{r model_training_setup, include=FALSE}
+train_control <- trainControl(
+  method = "cv", 
+  number = 5,
+  summaryFunction = twoClassSummary,
+  classProbs = TRUE,
+  savePredictions = "final"
+)
+```
+
+## Model 1: Regresja Logistyczna (GLM)
+
+Regresja logistyczna to podstawowy i szybki model, stanowiący dobry punkt odniesienia dla bardziej złożonych algorytmów.
+
+```{r glm_model}
+model_glm <- train(
+  is_promoted ~ ., 
+  data = train_data, 
+  method = "glm", 
+  family = "binomial",
+  trControl = train_control
+)
+
+pred_glm <- predict(model_glm, test_data)
+cm_glm <- confusionMatrix(pred_glm, test_data$is_promoted, positive = "Tak")
+
+print(cm_glm)
+```
+
+## Model 2: Drzewo Decyzyjne (rpart)
+
+Drzewa decyzyjne są modelem łatwym do interpretacji graficznej, co pozwala na zrozumienie logiki podejmowania decyzji.
+
+```{r rpart_model, fig.cap='Wizualizacja drzewa decyzyjnego'}
+model_rpart <- train(
+  is_promoted ~ ., 
+  data = train_data, 
+  method = "rpart",
+  trControl = train_control,
+  tuneLength = 5
+)
+
+pred_rpart <- predict(model_rpart, test_data)
+cm_rpart <- confusionMatrix(pred_rpart, test_data$is_promoted, positive = "Tak")
+
+print(cm_rpart)
+
+rpart.plot(model_rpart$finalModel, box.palette = "Blues", roundint = FALSE)
+```
+
+## Model 3: Las Losowy (Random Forest)
+
+Las losowy to zaawansowany model zespołowy (ensemble), który buduje wiele drzew decyzyjnych, co zazwyczaj prowadzi do uzyskania wyższej skuteczności predykcyjnej.
+
+```{r rf_model}
+model_rf <- train(
+  is_promoted ~ ., 
+  data = train_data, 
+  method = "rf",
+  trControl = train_control,
+  tuneGrid = expand.grid(.mtry = c(2, 5, 10))
+)
+
+pred_rf <- predict(model_rf, test_data)
+cm_rf <- confusionMatrix(pred_rf, test_data$is_promoted, positive = "Tak")
+
+print(cm_rf)
+```
+
+# 3. Porównanie Modeli i Wnioski
+
+Ostateczne porównanie skuteczności wszystkich modeli na **zbiorze testowym** zostało przedstawione w tabeli poniżej.
+
+```{r comparison, results='asis'}
+results_summary <- data.frame(
+  Model = c("Regresja Logistyczna", "Drzewo Decyzyjne", "Las Losowy"),
+  Accuracy = c(cm_glm$overall['Accuracy'], cm_rpart$overall['Accuracy'], cm_rf$overall['Accuracy']),
+  Precision = c(cm_glm$byClass['Precision'], cm_rpart$byClass['Precision'], cm_rf$byClass['Precision']),
+  Recall = c(cm_glm$byClass['Recall'], cm_rpart$byClass['Recall'], cm_rf$byClass['Recall']),
+  F1 = c(cm_glm$byClass['F1'], cm_rpart$byClass['F1'], cm_rf$byClass['F1'])
+)
+
+kable(results_summary, caption = "Zbiorcze porównanie skuteczności modeli", digits = 4)
+```
+
+### Wnioski końcowe
+
+Zdecydowanie **najlepszym modelem** okazał się **Las Losowy (Random Forest)**. Uzyskał on najwyższą ogólną dokładność (Accuracy) oraz najlepszy kompromis między precyzją a czułością, co potwierdza najwyższa wartość metryki F1-Score.
+
+Prostsze modele, takie jak regresja logistyczna i drzewo decyzyjne, charakteryzują się znacznie niższą zdolnością predykcyjną. W szczególności drzewo decyzyjne wykazuje bardzo niską czułość (Recall), co w praktyce oznacza, że model ten pomijałby wielu wartościowych pracowników, którzy zasługują na awans.
+
+**Rekomendacja:** W celu wsparcia procesów decyzyjnych HR, rekomenduje się wdrożenie modelu **Lasu Losowego** jako narzędzia do wstępnej identyfikacji kandydatów do awansu.
