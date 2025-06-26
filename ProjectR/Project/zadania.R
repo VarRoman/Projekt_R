@@ -3,14 +3,14 @@ library(dplyr)
 library(ggplot2)
 #zadanie 2
 
-df1 <- read_delim("C:\\Users\\mysyu\\Desktop\\HR Analytics\\HR Analytics\\train.csv", delim = ";")
+df1 <- read_delim("C:\\Users\\bezsh\\Desktop\\For_studying\\Polska_uniwersitecia\\4_semester\\Python_R\\project\\ProjectR\\HR Analytics\\train.csv", delim = ";")
 
 pracownicy_departament <- df1 %>%
-  count(department, name = "liczba_pracowników") %>%
+  count(department, name = "liczba_pracownikow") %>%
   arrange(department)
 
 pracownicy_region <- df1 %>%
-  count(region, name = "liczba_pracowników") %>%
+  count(region, name = "liczba_pracownikow") %>%
   arrange(region)
 
 print(pracownicy_departament)
@@ -18,8 +18,9 @@ print(pracownicy_region)
 #zadanie3
 tabela_awansow <- table(df1$gender, df1$is_promoted)
 colnames(tabela_awansow) <- c("Nie awansowany", "Awansowany")
-rownames(tabela_awansow) <- c("Kobiety", "Mężczyźni")
+rownames(tabela_awansow) <- c("Kobiety", "Mezczyzni")
 print(tabela_awansow)
+
 #zadanie4
 tabela_kanal_awansu <- table(df1$recruitment_channel, df1$is_promoted)
 colnames(tabela_kanal_awansu) <- c("Nie awansowany", "Awansowany")
@@ -29,29 +30,29 @@ print(tabela_kanal_awansu)
 ggplot(df1, aes(x = gender, y = no_of_trainings, fill = gender)) +
   geom_boxplot() +
   labs(
-    title = "Liczba szkoleń wg płci",
-    x = "Płeć",
-    y = "Liczba szkoleń",
-    fill = "Płeć"
+    title = "Liczba szkolen wg plci",
+    x = "Plec",
+    y = "Liczba szkolen",
+    fill = "Plec"
   ) +
   theme_minimal()
 
 ggplot(df1, aes(x = gender, y = length_of_service, fill = gender)) +
   geom_boxplot() +
   labs(
-    title = "Staż pracy wg płci",
-    x = "Płeć",
+    title = "Staz pracy wg plci",
+    x = "Plec",
     y = "Lata pracy",
-    fill = "Płeć"
+    fill = "Plec"
   ) +
   theme_minimal()
 ggplot(df1, aes(x = education, y = avg_training_score, fill = education)) +
   geom_boxplot() +
   labs(
-    title = "Wyniki średnich szkoleń wg poziomu wykształcenia",
-    x = "Poziom wykształcenia",
-    y = "Średni wynik ze szkoleń",
-    fill = "Wykształcenie"
+    title = "Wyniki srednich szkolen wg poziomu wyksztalcenia",
+    x = "Poziom wyksztalcenia",
+    y = "Sredni wynik ze szkolen",
+    fill = "Wyksztalcenie"
   ) +
   theme_minimal() +
   theme(
@@ -61,9 +62,9 @@ ggplot(df1, aes(x = education, y = avg_training_score, fill = education)) +
 ggplot(df1, aes(x = previous_year_rating, y = avg_training_score, color = as.factor(is_promoted))) +
   geom_point(alpha = 0.6) +
   labs(
-    title = "Zależność między oceną z poprzedniego roku a wynikiem szkoleń",
+    title = "Zaleznosc miedzy ocena z poprzedniego roku a wynikiem szkolen",
     x = "Ocena z poprzedniego roku",
-    y = "Średni wynik szkolenia",
+    y = "Sredni wynik szkolenia",
     color = "Awans"
   ) +
   theme_minimal()
@@ -73,10 +74,10 @@ ggplot(df1, aes(x = previous_year_rating, y = avg_training_score, color = as.fac
 ggplot(df1, aes(x = no_of_trainings, y = age, color = gender)) +
   geom_point(alpha = 0.6) +
   labs(
-    title = "Liczba szkoleń a wiek pracownika z podziałem na płeć",
-    x = "Liczba szkoleń",
+    title = "Liczba szkolen a wiek pracownika z podzialem na plec",
+    x = "Liczba szkolen",
     y = "Wiek",
-    color = "Płeć"
+    color = "Plec"
   ) +
   theme_minimal()
 #
@@ -110,7 +111,6 @@ ci_results <- df1 %>%
 print(ci_results)
 ci_results$rating_ci[[1]]$mean_ci
 ci_results$rating_ci[[1]]$var_ci
-#
 
 #zadanie 9
 t.test(avg_training_score ~ is_promoted, data = df1)
